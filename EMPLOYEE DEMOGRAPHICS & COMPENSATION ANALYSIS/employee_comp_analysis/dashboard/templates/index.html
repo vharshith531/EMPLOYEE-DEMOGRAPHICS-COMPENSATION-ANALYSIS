@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Demographics & Compensation Analysis</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .kpi-card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); text-align: center; }
+        .kpi-title { font-size: 0.9rem; color: #6c757d; text-transform: uppercase; letter-spacing: 1px; }
+        .kpi-value { font-size: 2rem; font-weight: bold; color: #0d6efd; margin-top: 10px; }
+        .chart-container { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-top: 20px;}
+    </style>
+</head>
+<body>
+
+<div class="container mt-4 mb-5">
+    <h2 class="mb-4 text-center">Employee Demographics & Compensation Dashboard</h2>
+    
+    <!-- Filters -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <label class="form-label">Department</label>
+            <select id="filter-dept" class="form-select" onchange="fetchData()">
+                <option value="All">All Departments</option>
+                {% for d in departments %} <option value="{{ d }}">{{ d }}</option> {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Gender</label>
+            <select id="filter-gender" class="form-select" onchange="fetchData()">
+                <option value="All">All Genders</option>
+                {% for g in genders %} <option value="{{ g }}">{{ g }}</option> {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Experience Tier</label>
+            <select id="filter-exp" class="form-select" onchange="fetchData()">
+                <option value="All">All Experience Levels</option>
+                {% for e in experiences %} <option value="{{ e }}">{{ e }}</option> {% endfor %}
+            </select>
+        </div>
+    </div>
+    
+    <!-- KPIs -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="kpi-card">
+                <div class="kpi-title">Total Employees</div>
+                <div class="kpi-value" id="kpi-total">-</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="kpi-card">
+                <div class="kpi-title">Average Salary</div>
+                <div class="kpi-value" id="kpi-salary">-</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="kpi-card">
+                <div class="kpi-title">Average Bonus</div>
+                <div class="kpi-value" id="kpi-bonus">-</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="kpi-card">
+                <div class="kpi-title">Gender Pay Gap</div>
+                <div class="kpi-value text-danger" id="kpi-gap">-</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Charts -->
+    <div class="row">
+        <div class="col-md-7">
+            <div class="chart-container">
+                <canvas id="chart1"></canvas>
+            </div>
+        </div>
+        <div class="col-md-5">
+            <div class="chart-container">
+                <canvas id="chart2"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let chart1Instance = null;
+    let chart2Instance = null;
+    
+    async function fetchData() {
+        const dept = document.getElementById('filter-dept').value;
+        const gender = document.getElementById('filter-gender').value;
+        const exp = document.getElementById('filter-exp').value;
+        
+        try {
+            const response = await fetch(`/api/data?department=${dept}&gender=${gender}&experience=${exp}`);
+            const data = await response.json();
+            
+            if(data.error) {
+                console.error(data.error);
+                return;
+            }
+            
+            // Update KPIs
+            document.getElementById('kpi-total').innerText = data.kpis.total_employees;
+            document.getElementById('kpi-salary').innerText = data.kpis.avg_salary;
+            document.getElementById('kpi-bonus').innerText = data.kpis.avg_bonus;
+            document.getElementById('kpi-gap').innerText = data.kpis.pay_gap;
+            
+            // Update Chart 1
+            const ctx1 = document.getElementById('chart1').getContext('2d');
+            if(chart1Instance) chart1Instance.destroy();
+            chart1Instance = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: data.chart1.labels,
+                    datasets: [{
+                        label: 'Average Salary (₹)',
+                        data: data.chart1.data,
+                        backgroundColor: '#0d6efd'
+                    }]
+                },
+                options: { responsive: true, plugins: { title: { display: true, text: 'Average Salary by Department' } } }
+            });
+            
+            // Update Chart 2
+            const ctx2 = document.getElementById('chart2').getContext('2d');
+            if(chart2Instance) chart2Instance.destroy();
+            chart2Instance = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: data.chart2.labels,
+                    datasets: [{
+                        data: data.chart2.data,
+                        backgroundColor: ['#198754', '#ffc107', '#dc3545', '#0dcaf0', '#d63384']
+                    }]
+                },
+                options: { responsive: true, plugins: { title: { display: true, text: 'Gender Distribution' } } }
+            });
+            
+        } catch (error) {
+            console.error("Error fetching data:", error);
+        }
+    }
+    
+    // Initial fetch
+    fetchData();
+</script>
+</body>
+</html>
